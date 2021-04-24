@@ -184,6 +184,7 @@
     2. pem 파일 위치에서 **AWS Server** 접속
         ```{.bash}
         chmod 400 mykafka.pem
+        
         ssh -i mykafka.pem ec20user@{aws ec2 public ip}
         ```
     3. Java, Kafka 설치 및 압축 풀기 / **Kafka 실행 최소 Heap Size 설정 제거**
@@ -191,11 +192,13 @@
         sudo yum install -y java-1.8.0-openjdk-devel.x86_64
         wget http://mirror.navercorp.com/apache/kafka/2.5.0/kafka_2.12-2.5.0.tgz
         tar -xvf kafka_2.12-2.5.0.tgz
+        
         export KAFKA_HEAP_OPTS="-Xmx400m -Xms400m"
         ```
     4. **카프카 설정 파일 수정**
         ```{.bash}
         vi config/server.properties
+        
         listeners=PLAINTEXT://:9092
         advertised.listeners=PLAINTEXT://{aws ec2 public ip}:9092
         ```
@@ -220,19 +223,26 @@
     2. 테스트
         ```{.bash}
         cd kafka_2.13-2.5.0/bin
+        
         - 토픽 생성
         ./kafka-topics.sh --create --bootstrap-server {aws ec2 public ip}:9092 --replication-factor 1 --partitions 3 --topic test
+        
         - Producer 실행
         ./kafka-console-producer.sh --bootstrap-server {aws ec2 public ip}:9092 --topic test
+        
         - Consumer 실행
         ./kafka-console-consumer.sh --bootstrap-server {aws ec2 public ip}:9092 --topic test --from-beginning
         ./kafka-console-consumer.sh --bootstrap-server {aws ec2 public ip}:9092 --topic test -group testgroup --from-beginning
+        
         - Consumer Group List 확인
         ./kafka-consumer-groups.sh --bootstrap-server {aws ec2 public ip}:9092 --list
+        
         - Consumer Group 상태 확인
         ./kafka-consumer-groups.sh --bootstrap-server {aws ec2 public ip}:9092 --group testgroup --describe
+        
         - 가장 낮은 Offset으로 Reset
         ./kafka-consumer-groups.sh --bootstrap-server {aws ec2 public ip}:9092 --group testgroup --topic test --reset-offsets --to-earliest --execute
+        
         - 특정 파티션을 특정 Offset으로 Reset
         ./kafka-consumer-groups.sh --bootstrap-server {aws ec2 public ip}:9092 --group testgroup --topic test:1 --reset-offsets --to-offset 10 --execute
         ```
@@ -267,8 +277,142 @@
 ----------------------------------------------------
 
 ## Kafka Producer
-
-
+1. **필수 구성 옵션**
+    1. **boostrap.servers**
+        - **카프카 클러스터에 연결하기 위한 브로커 목록**
+        - 프로듀서가 사용하는 브로커들의 host:port 목록을 설정
+        - 연결되면 프로듀서가 더 많은 정보를 얻을 수 있기 때문에 **모든 브로커를 포함할 필요는 없다. 그러나 최소한 두 개 이상을 포함하는 것이 좋다. 한 브로커가 중단되는 경우에도 프로듀서는 여전히 클러스터에 연결될 수 있기 때문이다.**
+    2. **key.serializer**
+        - **메시지 키 직렬화에 사용되는 클래스**
+        - 프로듀서가 생성하는 레코드(ProducerRecord 객체)의 메시지 키를 직렬화하기 위해 사용되는 클래스 이름을 이 속성에 설정
+        - 카프카 브로커는 바이트 배열로 메시지를 받는다. 그러나 카프카의 프로듀서 인터페이스에서는 매개변수화 타입을 사용해서 키와 값의 쌍으로 된 어떤 자바 객체도 전송할 수 있으므로 알기 쉬운 코드를 작성할 수 있다. 단, 이때는 그런 객체를 바이트 배열로 변환하는 방법을 프로듀서가 알고 있어야 한다.
+        - key.serializer에 설정하는 클래스는 org.apache.kafka.common.serialization.Serializer 인터페이스를 구현해야 한다. 프로듀서는 이 클래스를 사용해서 키 객체를 바이트 배열로 직렬화한다.
+        - 카프카 클라이언트 패키지에는 세 가지 타입의 직렬화를 지원하는 ByteArraySerializer, StringSerializer, IntegerSerializer가 포함되어 있다. 이런 타입들을 직렬화할 때는 직렬처리기를 따로 구현하지 않아도 된다.
+        - **레코드의 키는 생략하고 값만 전송하고자 할 때도 설정해야 한다.**
+    3. **value.serializer**
+        - **메시지 값을 직렬화하는데 사용되는 클래스**
+        - 레코드의 메시지 값을 직렬화하는 데 사용하는 클래스 이름을 설정
+        - 직렬화하는 방법은 key.serializer와 동일하다.
+    4. **기본 설정**
+        ```{.java}
+        // Properties 객체 생성
+        private Properties kafkaProps = new Properties();
+        
+        // 속성과 값 설정
+        kafkaProps.put("bootstrap.servers", "broker1:9092, broker2:9092");
+        kafkaProps.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        kafkaProps.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        
+        // 새로운 프로듀서 객체 생성, Properties 객체를 생성자 인자로 전달한다.
+        Producer<String, String> producer = new KafkaProducer<String, String>(kafkaProps);
+        ```
+2. **선택 구성 옵션** (Default 값 존재)
+    1. **acks**
+        - 레코드 전송 **신뢰도 조절** (Replica)
+        - 전송된 레코드를 수신하는 파티션 리클리카의 수를 제어, 메시지가 유실될 가능성에 영향을 준다.
+        - **acks=0** : **프로듀서는 브로커의 응답을 기다리지 않는다.** 메시지 유실 가능성이 큰데 반해, 매우 높은 처리량이 필요할 때 사용
+        - **acks=1** : **리더 리플리카가 메시지를 받는 순간 프로듀서는 브로커로부터 성공적으로 수신했다는 응답을 받는다.** 그러나 만일 리더에서 메시지를 쓸 수 없다면 프로듀서는 에러 응답을 받을 것이고 데이터 유실을 막기 위해 메시지를 다시 전송할 수 있다. 또한 리더가 중단되고 해당 메시지를 아직 복제하지 않은 리플리카가 새로운 리더로 선출될 경우에도 여전히 메시지가 유실될 수 있다. 이때는 동기식이나 비동기식 중 어떤 방법으로 메시지를 전송했는가에 따라 처리량이 달라질 수 있다.
+        - **acks=all** : **동기화된 모든 리플리카가 메시지를 받으면 프로듀서가 브로커의 성공 응답을 받는다.** 하나 이상의 브로커가 해당 메시지를 갖고 있으므로, 파티션이나 리더 리플리카에 문제가 생기더라도 메시지가 유실되지 않기 때문에 가장 안전한 형태이다. 그러나 대기 시간이 길어진다.
+    2. **compression.type**
+        - **snappy, gzip, lz4 중 하나로 압축**하여 전송
+        - 기본적으로 메시지는 압축되지 않은 상태로 전송되지만, 이 매개변수를 설정하면 압축되어 전송된다. 따라서 **네트워크 처리량이 제한적일 때** 사용하면 좋다.
+        - 메시지 압축을 사용함으로써 카프카로 메시지를 전송할 때 병목 현상이 생길 수 있는 네트워크와 스토리지 사용을 줄일 수 있다.
+    3. **retries**
+        - 클러스터 장애에 대응하여 **메시지 전송을 재시도하는 횟수**
+        - 프로듀서가 서버로부터 받는 에러가 일시적일 수 있기 때문에 메시지 전송을 포기하고 에러로 처리하기 전에 프로듀서가 메시지를 재전송하는 횟수를 제어할 수 있다.
+        - 각 재전송 간에 **retry.backoff.ms**에 설정한 시간동안 대기하고 전송한다.
+    4. **buffer.memory**
+        - **브로커에 전송될 메시지의 버퍼로 사용될 메모리 양**
+        - 브로커들에게 전송될 메시지의 버퍼로 사용할 메모리의 양을 설정
+        - 메시지들이 서버에 전달될 수 있는 것보다 더 빠른 속도로 애플리케이션에서 전송된다면 추가로 호출되는 send() 메서드는 block.on.buffer.full(max.block.ms) 매개변수의 설정에 따라 예외를 일시 중단 시키거나 바로 발생시킨다.
+    5. **batch.size**
+        - **여러 데이터를 함께 보내기 위한 레코드 크기**
+        - 같은 파티션에 쓰는 다수의 레코드가 전송될 때는 프로듀서가 그것들을 배치로 모은다. 이 매개변수는 각 배치에 사용될 메모리양(byte)을 제어한다. 그리고 해당 배치가 가득 차면 그것의 모든 메시지가 전송된다.
+        - **하지만 배치가 가득 찰 때까지 프로듀서가 기다리는 것은 아니다.** 프로듀서는 절반만 채워진 배치와 심지어는 하나의 메시지만 있는 배치도 전송한다.
+        - 크게 설정할 경우 메시지 전송은 지연되지 않지만 메모리를 더 많이 사용하게 된다. 반면에 작게 설정하면 프로듀서가 너무 자주 메시지를 전소앻야 하므로 부담을 초래한다.
+    6. **linger.ms**
+        - **현재의 배치를 전송하기 전까지 기다리는 시간**
+        - **현재의 배치가 가득 찼거나, linger.ms에 설정된 제한 시간이 되면 프로듀서가 메시지 배치를 전송**한다.
+        - 대기 시간이 증가하는 단점은 있지만, 동시에 처리량도 증가하는 장점이 있다.
+    7. **client.id**
+        - **어떤 클라이언트인지 구분하는 식별자**
+        - 어떤 문자열도 가능하며, 어떤 클라이언트에서 전송된 메시지인지 식별하기 위해 브로커가 사용한다.
+        - **주로 로그 메시지와 메트릭 데이터의 전송에 사용**
+    8. **max.in.flight.requests.per.connection**
+        - **서버의 응답을 받지 않고 프로듀서가 전송하는 메시지의 개수를 제어**한다.
+    9. **timeout.ms, request.timeout.ms, metadata.fetch.timeout.ms**
+        - timeout.ms : 동기화된 리플리카들이 메시지를 인지하는 동안 브로커가 대기하는 시간 제어
+        - request.timeout.ms : 데이터를 전송할 때 프로듀서가 서버 응답을 기다리는 제한 시간
+        - metadata.fetch.timeout.ms : 메타데이터를 요청할 때 프로듀서가 서버 응답을 기다리는 제한 시간
+    10. **max.block.ms**
+        - send() 메서드를 호출할 때 프로듀서의 전송 버퍼가 가득 차거나 partitionsFor() 메소드로 메타데이터를 요청했지만 사용할 수 없을 때 프로듀서가 max.block.ms의 시간동안 일시 중단된다 (그 사이에 에러가 해결될 수 있도록). 그 다음에 max.block.ms의 시간이 되면 시간 경과 예외가 발생한다.
+    11. **max.request.size**
+        - **프로듀서가 전송하는 쓰기 요청의 크기를 제어**한다.
+        - 전송될 수 있는 가장 큰 메시지의 크기와 프로듀서가 하나의 요청으로 전송할 수 있는 메시지의 최대 개수 모두를 이 매개변수로 제한한다.
+        - **브로커 설정의 message.max.bytes와 이 값을 일치되도록 설정하는 것이 좋다. 그래야만 브로커가 거부하는 크기의 메시지를 프로듀서가 전송하지 않을 것이기 때문이다.**
+    12. **receive.buffer.bytes, send.buffer.bytes**
+        - 데이터를 읽고 쓸 때 소켓이 사용하는 TCP 송수신 버퍼의 크기를 나타낸다. 만일 이 매개변수들이 -1로 설정되면 운영체제의 기본값이 사용된다.
+3. **메시지 전송 방법**
+    1. **Fire-and-forget (전송 후 망각)**
+        - 가장 간단한 방법, send() 메서드로 메시지를 **전송만 하고 성공 또는 실패 여부에 따른 후속 조치를 취하지 않는 방법**, 카프카는 가용성이 높고 전송에 실패할 경우에 프로듀서가 자동으로 재전송을 시도하므로 대부분의 경우에 성공적으로 메시지가 전송된다. 그러나 일부 메시지가 유실될 수도 있다.
+        ```{.java}
+        // ("topic", "key", "value")
+        ProducerRecord<String, String> record = new ProducerRecord<>("CustomerCountry", "Precision Products", "France");
+        
+        try {
+            producer.send(record);
+        } catch(Exception e){
+            e.printStackTrace();
+        }
+        ```
+    2. **Synchronous send (동기식 전송)**
+        - send() 메서드로 메시지를 전송하면 자바의 Future 객체가 반환된다. 그 다음에 **Future 객체의 get() 메서드를 곧바로 호출하면 작업이 완료될 때까지 기다렸다가 브로커로부터 처리 결과가 반환**되므로 send()가 성공적으로 수행되었는지 알 수 있다.
+        ```{.java}
+        ProducerRecord<String, String> record = new ProducerRecord<>("CustomerCountry", "Precision Products", "France");
+        
+        try {
+            producer.send(record).get();
+        } catch(Exception e){
+            e.printStackTrace();
+        }
+        ```
+    3. **Asynchronous send (비동기식 전송)**
+        - send() 메서드를 호출할 때 **콜백 메서드**를 구현한 객체를 매개변수로 전달한다. 이 객체에 구현된 콜백 메서드는 카프카 브로커로부터 응답을 받을 때 자동으로 호출되므로 send()가 성공적으로 수행되었는지 알 수 있다.
+        ```{.java}
+        private class DemoProducerCallback implements Callback{
+            @Override
+            public void onCompletion(RecordMetadata recordMetadata, Exception e){
+                if(e != null){
+                    e.printStackTrace();
+                }
+            }
+        }
+        
+        ProducerRecord<String, String> record = new ProducerRecord<>("CustomerCountry", "Precision Products", "France");
+        
+        producer.send(record, new DemoProducerCallback());
+        ```
+4. **직렬처리기** (**Detailed** : can be found in each directory.)
+    1. **커스텀 직렬 처리기** (Customer.java, CustomerSerializer.java)
+        - 예를 들어, 고객을 나타내는 간단한 클래스는 customerID와 customerName 속성을 갖는다.
+        - 기존의 int형의 ID를 Long 타입으로 변경해야 하거나 새로운 필드를 추가한다면, **기존 메시지와 새로운 메시지 간의 호환성을 유지하는 데 심각한 문제**가 생길 것이다.
+        - 이런 이유로 JSON, 아파치 Avro, Thrift, Protobuf 같은 **범용 직렬처리기와 역직렬처기리의 사용을 권장**한다.
+    2. **아파치 Avro를 사용해서 직렬화하기**
+        - Avro는 언어 중립적인 데이터 직렬화 시스템이다.
+        - Avro는 주로 JSON(JavaScript Object Notation) 형식으로 기술하며, 직렬화 역시 JSON을 지원하지만 주로 이진 파일을 사용한다.
+        - **Avro가 파일을 읽고 쓸 때는 스키마가 있다고 간주한다** (Avro 파일에는 스키마가 포함된다).
+        - 메시지를 쓰는 애플리케이션이 새로운 스키마(데이터 구조)로 전환하더라도 **해당 메시지를 읽는 애플리케이션은 일체의 변형 없이 계속해서 메시지를 처리할 수 있다는 것이 가장 큰 장점**이다.
+        - **조건**
+            1. **데이터를 쓰는 데 사용되는 스키마와 읽는 애플리케이션에서 기대하는 스키마가 호환**될 수 있어야 한다.
+            2. 직렬화된 데이터를 원래의 형식으로 변환하는 **역직렬처리기는 데이터를 쓸 때 사용되었던 스키마를 사용해야 한다**. 그 스키마가 해당 데이터를 읽는 애플리케이션이 기대하는 것과 다른 경우에도 마찬가지다. 따라서 Avro 파일에는 데이터를 쓸 때 사용되었던 스키마가 포함된다. 그러나 카프카 메시지를 Avro로 직렬화할 때는 Avro 파일을 사용하는 것보다 **스키마 레지스트리**를 사용하는 더 좋은 방법이 있다.
+    3. **Avro 레코드 사용하기** (AvroSerializer.java, GenericAvroSerializer.java)
+        1. 데이터 파일에 스키마 전체를 저장하는 Avro 파일과는 다르게, 데이터를 갖는 각 레코드에 스키마 전체를 저장한다면 레코드 크기가 2배 이상이 되므로 큰 부담이 될 것이다. 그러나 레코드를 **읽을 때 Avro는 스키마 전체를 필요로 하므로 레코드 크기의 부담이 없게 하려면 스키마를 레코드가 아닌 다른 곳에 두어야 한다.** 이렇게 하기 위해 아파치 카프카에서는 아키텍처 패턴에 나온대로 **스키마 레지스트리를 사용**한다. 스키마 레지스트리는 아파치 카프카에 포함되지 않았지만 **오픈 소스에서 선택**할 수 있는 것들이 있다. 여기서는 [Confluent](https://github.com/confluentinc/schema-registry) 스키마 레지스트리를 사용했다.
+        2. **카프카에 데이터를 쓰는 데 사용되는 모든 스키마를 레지스트리에 저장하는 것이 스키마 레지스트리의 개념**이다. 그 다음에 **카프카에 쓰는 레코드에는 사용된 스키마의 식별자만 저장하면 된다.** 그러면 컨슈머는 해당 식별자를 사용해서 스키마 레지스트리의 스키마를 가져온 후 이 스키마에 맞춰 데이터를 역직렬화할 수 있다. 이때 모든 작업이 직렬처리기와 역직렬처리기에서 수행된다는 것이 중요하다. 즉, 카프카에 데이터를 쓰는 코드에서는 스키마 레지스트리 관련 코드를 추가하지 않고 종전 직렬처리기를 사용하듯이 Avro를 사용하면 된다.
+        3. **필요 jar 및 Gradle Dependency 추가** (Producer_Serializer/lib Directory)
+            1. [Apache Avro](https://mvnrepository.com/artifact/org.apache.avro/avro/1.8.2)
+            2. [Confluent Avro Serializer](http://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/)
+                - Influent는 Gradle Dependency Error가 잘 발생하여 직접 jar 파일을 다운로드해서 사용
+                
 ----------------------------------------------------
 
 
