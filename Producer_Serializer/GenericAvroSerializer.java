@@ -1,4 +1,5 @@
 package com.tacademy;
+import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -26,6 +27,7 @@ public class GenericAvroSerializer {
         configs.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
         // SCHEMA_REGISTRY_URL
         configs.put("schema.registry.url", "{schemaUrl}");
+//        configs.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "{schemaUrl}");
 
         String schemaString =
                 "{\"namespace\": \"customerManagement.avro\", " +

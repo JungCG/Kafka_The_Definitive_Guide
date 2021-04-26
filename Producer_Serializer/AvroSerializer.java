@@ -1,9 +1,9 @@
 package com.tacademy;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.Properties;
 
@@ -23,6 +23,8 @@ public class AvroSerializer {
         configs.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
         // SCHEMA_REGISTRY_URL
         configs.put("schema.registry.url", "{schemaUrl}");
+//        configs.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "{schemaUrl}");
+
 
         KafkaProducer<String, Customer> producer = new KafkaProducer<String, Customer>(configs);
 
