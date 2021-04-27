@@ -182,13 +182,13 @@
 1. **AWS EC2에 카프카 설치**
     1. **AWS EC2 구축** (EC2 + Route 53 + Elastic beanstalk + RDS), pem파일 저장 [영상](https://www.youtube.com/playlist?list=PLSU3uVI3_Xyvpw2fIiUrKs8skZMwyr3LI) [![Youtube Badge](https://img.shields.io/badge/Youtube-ff0000?style=flat-square&logo=youtube&link=https://www.youtube.com/playlist?list=PLSU3uVI3_Xyvpw2fIiUrKs8skZMwyr3LI)](https://www.youtube.com/playlist?list=PLSU3uVI3_Xyvpw2fIiUrKs8skZMwyr3LI)
     2. pem 파일 위치에서 **AWS Server** 접속
-        ```{.bash}
+        ```bash
         chmod 400 mykafka.pem
         
         ssh -i mykafka.pem ec20user@{aws ec2 public ip}
         ```
     3. Java, Kafka 설치 및 압축 풀기 / **Kafka 실행 최소 Heap Size 설정 제거**
-        ```{.bash}
+        ```bash
         sudo yum install -y java-1.8.0-openjdk-devel.x86_64
         wget http://mirror.navercorp.com/apache/kafka/2.5.0/kafka_2.12-2.5.0.tgz
         tar -xvf kafka_2.12-2.5.0.tgz
@@ -196,32 +196,32 @@
         export KAFKA_HEAP_OPTS="-Xmx400m -Xms400m"
         ```
     4. **카프카 설정 파일 수정**
-        ```{.bash}
+        ```bash
         vi config/server.properties
         
         listeners=PLAINTEXT://:9092
         advertised.listeners=PLAINTEXT://{aws ec2 public ip}:9092
         ```
     5. **주키퍼** 실행
-        ```{.bash}
+        ```bash
         bin/zookeeper-server-start.sh -daemon config/zookeeper.properties
         ```
     6. **카프카** 실행
-        ```{.bash}
+        ```bash
         bin/kafka-server-start.sh -daemon config/server.properties
         ```
     7. 로그 확인
-        ```{.bash}
+        ```bash
         tail -f logs/*
         ```
 2. **Local**에 카프카 설치 및 테스트
     1. 카프카 설치 및 압축 풀기
-        ```{.bash}
+        ```bash
         curl http://mirror.navercorp.com/apache/kafka/2.5.0/kafka_2.13-2.5.0.tgz
         tar -xvf kafka_2.13-2.5.0.tgz
         ```
     2. 테스트
-        ```{.bash}
+        ```bash
         cd kafka_2.13-2.5.0/bin
         
         - 토픽 생성
@@ -294,7 +294,7 @@
         - 레코드의 메시지 값을 직렬화하는 데 사용하는 클래스 이름을 설정
         - 직렬화하는 방법은 key.serializer와 동일하다.
     4. **기본 설정**
-        ```{.java}
+        ```java
         // Properties 객체 생성
         private Properties kafkaProps = new Properties();
         
@@ -355,7 +355,7 @@
 3. **메시지 전송 방법**
     1. **Fire-and-forget (전송 후 망각)**
         - 가장 간단한 방법, send() 메서드로 메시지를 **전송만 하고 성공 또는 실패 여부에 따른 후속 조치를 취하지 않는 방법**, 카프카는 가용성이 높고 전송에 실패할 경우에 프로듀서가 자동으로 재전송을 시도하므로 대부분의 경우에 성공적으로 메시지가 전송된다. 그러나 일부 메시지가 유실될 수도 있다.
-        ```{.java}
+        ```java
         // ("topic", "key", "value")
         ProducerRecord<String, String> record = new ProducerRecord<>("CustomerCountry", "Precision Products", "France");
         
@@ -367,7 +367,7 @@
         ```
     2. **Synchronous send (동기식 전송)**
         - send() 메서드로 메시지를 전송하면 자바의 Future 객체가 반환된다. 그 다음에 **Future 객체의 get() 메서드를 곧바로 호출하면 작업이 완료될 때까지 기다렸다가 브로커로부터 처리 결과가 반환**되므로 send()가 성공적으로 수행되었는지 알 수 있다.
-        ```{.java}
+        ```java
         ProducerRecord<String, String> record = new ProducerRecord<>("CustomerCountry", "Precision Products", "France");
         
         try {
@@ -378,7 +378,7 @@
         ```
     3. **Asynchronous send (비동기식 전송)**
         - send() 메서드를 호출할 때 **콜백 메서드**를 구현한 객체를 매개변수로 전달한다. 이 객체에 구현된 콜백 메서드는 카프카 브로커로부터 응답을 받을 때 자동으로 호출되므로 send()가 성공적으로 수행되었는지 알 수 있다.
-        ```{.java}
+        ```java
         private class DemoProducerCallback implements Callback{
             @Override
             public void onCompletion(RecordMetadata recordMetadata, Exception e){
@@ -411,19 +411,18 @@
         3. **필요 jar 및 Gradle Dependency 추가** (Producer_Serializer/lib Directory)
             1. [Apache Avro](https://mvnrepository.com/artifact/org.apache.avro/avro/1.8.2)
             2. [Confluent Avro Serializer](http://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/)
-                - Influent는 Gradle Dependency Error가 잘 발생하여 직접 jar 파일을 다운로드해서 사용
-                
+                - Influent는 Gradle Dependency Error가 잘 발생하여 직접 jar 파일을 다운로드해서 사용  
 5. **파티션** (**Detailed** : can be found in each directory.)
     1. **Key 사용 목적**
         1. **메시지를 식별**하는 추가 정보
         2. 메시지를 쓰는 **토픽의 여러 파티션 중 하나를 결정**하기 위해서 (같은 키를 갖는 모든 메시지는 같은 파티션에 저장된다.)
     2. **ProducerRecord** 객체 생성
         1. **키와 값이 쌍**으로 된 레코드
-            ```{.java}
+            ```java
             ProducerRecord<String, String> record = new ProducerRecord<>("topic","key","value");
             ```
         2. **키가 없는 레코드** (이 경우 key = null)
-            ```{.java}
+            ```java
             ProducerRecord<String, String> record = new ProducerRecord<>("topic", "value");
             ```
     3. **키가 null 이면서 카프카의 기본 파티셔너**를 사용
@@ -442,48 +441,337 @@
         
 ----------------------------------------------------
 
-
 ## Kafka Consumer
+1. **중요 개념**
+    - 카프카 컨슈머들은 **컨슈머 그룹**(Consumer Group)에 속한다.
+    - 다수의 컨슈머가 같은 토픽을 소비하면서 같은 컨슈머 그룹에 속할 때는 **각 컨슈머가 해당 토픽의 서로 다른 파티션을 분담해서 메시지를 읽을 수 있다.**
+    - 하나의 컨슈머 그룹에 더 많은 컨슈머를 추가하면 카프카 토픽의 데이터 소비를 확장할 수 있다.
+    - 그러나 **한 토픽의 파티션 개수보다 더 많은 수의 컨슈머를 추가하는 것은 의미가 없다**.
+    - **각 컨슈머는 스레드로 구현되며 병행으로 실행된다.**
+    - **같은 토픽의 데이터를 다수의 애플리케이션이 읽어야 할 때는 각 애플리케이션이 자신의 컨슈머 그룹을 갖도록 해야 한다.** 각 애플리케이션에서 하나 이상의 토픽에 저장된 모든 메시지들을 읽어야 할 때는 애플리케이션마다 컨슈머 그룹을 생성한다. 그리고 토픽의 메시지 소비를 확장할 때는 기존 컨슈머 그룹에 새로운 컨슈머를 추가한다.
+2. 컨슈머 그룹과 **리밸런싱** (Re-Balancing)
+    - **컨슈머 그룹의 컨슈머들은 자신들이 읽는 토픽 파티션의 소유권을 공유**한다.
+    - **새로운 컨슈머를 그룹에 추가하면 이전에 다른 컨슈머가 읽던 파티션의 메시지들을 읽는다.** 특정 컨슈머가 **문제가 생겨 중단될 때도** 마찬가지다. 즉, **그 컨슈머가 읽던 파티션은 남은 컨슈머 중 하나가 재할당받아 읽는다.**
+    - 해당 컨슈머 그룹이 읽는 토픽들에 변경사항이 생길 때(파티션 추가 등)에도 **파티션의 재할당**이 생길 수 있다.
+    - **한 컨슈머로부터 다른 컨슈머로 파티션 소유권을 이전하는 것을 리밸런싱이라고 한다.** 리밸런싱은 컨슈머 그룹의 가용성과 확장성을 높여주므로 중요하다.
+    - 그러나 정상적인 처리에서는 그다지 바람직하지 않다. **리밸런싱을 하는 동안 컨슈머들은 메시지를 읽을 수 없으므로 해당 컨슈머 그룹 전체가 잠시나마 사용 불가능 상태**가 되기 때문이다.
+    - 또한 한 컨슈머로부터 다른 컨슈머로 파티션이 이전될 때는 해당 컨슈머의 이전 파티션에 관한 현재 상태 정보가 없어진다. 따라서 캐시 매모리에 있던 데이터도 지워지므로 컨슈머의 해당 파티션 상태 정보가 다시 설정될 때까지 애플리케이션의 실행이 느려질 수 있다.
+    - **그룹 조정자로 지정된 카프카 브로커에게 컨슈머가 하트비트를 전송하면 자신이 속한 컨슈머 그룹의 맴버십과 자신에게 할당된 파티션 소유권을 유지할 수 있다.**
+    - **그룹조정자는 GroupCoordinator 클래스의 인스턴스로 생성되어 백그라운드 프로세스로 실행되는 카프카 브로커**다.
+    - **하트비트는 컨슈머의 상태를 알리기 위해 전송되는 신호이며, 컨슈머가 일정 시간 간격으로 하트비트를 전송한다면, 그 컨슈머는 살아있고 잘 동작하며 자신의 파티션 메시지를 처리 가능한 것으로 간주한다.**
+    - **하트비트는 컨슈머가 폴링할 때 또는 읽은 메시지를 커밋할 때 자동으로 전송**된다.
+    - 만일 컨슈머가 세션 타임아웃 시간이 경과될때까지 하트비트 전송을 중단하면 GroupCoordinator가 해당 컨슈머를 중단된것으로 간주하고 리밸런싱을 시작한다. 또는 컨슈머에 문제가 생겨 중단되어도 마찬가지로 처리된다.
+    - 그리고 그동안은 중단된 컨슈머가 소유한 파티션의 메시지가 처리되지 않는다.
+    - 컨슈머가 정상적으로 종료될때는 그룹조정자에게 떠난다는 것을 알려주면 되며, 이때 그룹조정자는 처리 공백을 줄이기 위해 곧바로 리밸런싱을 시작시킨다. 
+    - 파티션 할당 절차
+        - 컨슈머가 그룹에 합류하고 싶을때는 그룹 조정자에게 JoinGroup 요청을 전송하면 된다. 이때 **그룹에 첫번째로 합류하는 컨슈머는 그룹 리더**가 된다. **리더는 그룹조정자로부터 해당 그룹의 모든 컨슈머 내역을 받을 수 있으며, 그 그룹의 각 컨슈머들에게 파티션을 할당하는 책임을 갖는다**. 그리고 이때 PartitionAssignor 클래스를 사용해서 어떤 파티션들을 어느 컨슈머가 처리할 것인지 결정한다.
+3. **필수 구성 옵션**
+    1. **bootstrap.servers** : KafkaProducer와 같은 방법
+    2. **key.deserializer, value.deserializer** : 프로듀서에 정의되는 직렬처리기와 반대 기능을 수행하는 **역직렬처리기**
+        - 자바 객체를 바이트 배열로 변환하는 직렬화 대신 직렬화된 바이트 배열의 값을 다시 자바 객체로 환원하는 역직렬화 클래스 지정
+4. **카프카 컨슈머 생성**
+    - 컨슈머 클래스인 **KafkaConsumer** 인스턴스 생성
+        - **Properties 인스턴스를 생성한 후 이것을 KafkaConsumer 생성자의 인자로 전달**한다.
+    ```java
+    Properties props = new Properties();
+    
+    props.put("bootstrap.servers", "broker1:9092, broker2:9092");
+    // 여기서 생성되는 컨슈머가 속한 컨슈머 그룹의 이름
+    props.put("group.id", "TestG");
+    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+    props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+    
+    KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);
+    ```
+5. **토픽 구독하기** (Subscribe)
+    1. 컨슈머를 생성한 다음에는 하나 이상의 토픽을 구독해야 한다. 이때 **subscribe**() 메서드를 사용하며 이 메서드는 **토픽 이름을 저장한 List를 매개변수로 받는다.**
+    2. 우리가 읽고자 하는 모든 토픽 이름들을 **한번에 전달해야 한다. 나중에 추가할 수 없다.**
+        ```java
+        // 토픽이름:cusomerCountries
+        // 정규 표현식을 매개변수로 전달하여 호출할 수도 있다. 새로운 토픽을 생헝하면 그 즉시 리밸런싱이 수행된 후 읽기 시작
+        // consumer.subscribe(Pattern.compile("test.*"));
+        consumer.subscribe(Collections.singletonList("customerCountries"));
+        ```
+    3. **폴링 루프**
+        - **컨슈머 API의 핵심은 서버로부터 연속적으로 많은 데이터를 읽기 위해 폴링하는 루프에 있다.**
+        - 컨슈머의 토픽 구독 요청이 정상적으로 처리되면 그 다음에 폴링 루프에서 데이터를 읽는 데 필요한 모든 상세 작업을 처리한다.
+        - **poll** : **가장 중요한 메소드, 컨슈머는 카프카를 계속 폴링해야 한다. 그렇게 하지 않으면 죽은 것으로 간주되어 해당 컨슈머가 읽는 파티션들을 같은 그룹의 다른 컨슈머가 처리하기 때문이다.**
+        - **새로운 컨슈머에서 최초로 poll()을 호출할 때는 이 메시드에서 그룹조정자를 찾고, 컨슈머 그룹에 추가시키며, 해당 컨슈머에게 할당된 파티션 내역을 받는다. 하트비트 전송도 poll() 메서드에서 자동으로 수행**된다.
+        ```java
+        try{
+            while(true){
+                // 100 : 타임아웃 간격 ms
+                ConsumerRecords<String, String> records = consumer.poll(100);
+                
+                for(ConsumerRecord<String, String> record : records){
+                    // 데이터 상세 처리
+                    // record.topic(), record.partition(), record.offset()
+                    // record.key(), record.value()
+                }
+            }
+        } finally{
+            consumer.close();
+        }
+        ```
 
+6. **선택 구성 옵션** (Default 값 존재)
+    1. **fetch.min.bytes**
+        - 레코드들을 가져올 때 **브로커로부터 받기 원하는 데이터의 최소량** 지정
+        - 브로커가 컨슈머로부터 레코드 요청을 받았찌만 읽을 레코드의 양이 이 값보다 작다면, 브로커는 더 많은 메시지가 모일 때까지 기다렸다가 전송
+        - **컨슈머와 브로커 모두의 작업량을 줄여준다.**
+    2. **fetch.max.wait.ms**
+        - **설정 시간만큼 기다렸다가 전송** (fetch.min.bytes와 연관), 기본 500ms
+    3. **max.partition.fetch.bytes**
+        - **서버가 파티션당 반환하는 최대 바이트 수를 제어**, 기본값 1MB
+        - 이 값은 브로커가 허용하는 가장 큰 메시지 크기(**브로커 구성, max.message.size**)보다 더 큰 값이어야 한다.
+        - 컨슈머가 데이터를 처리하는 데 걸리는 시간을 고려해야 한다.
+        - 세션 타임아웃과 이에 따른 리밸런싱을 방지하는 데 충분한 시간 간격으로 컨슈머가 poll() 메소드를 호출해야 한다. 만일 한번의 poll() 호출에서 반환하는 데이터 양이 매우 크다면 컨슈머가 그것을 처리하는 시간이 오래 걸릴수 있다. 따라서 세션 타임아웃을 방지하는 시간에 맞춰 폴링 루프의 다음 반복을 실행하지 못하게 될것이다. 만일 이런일이 생긴다면 이 값을 더 작은 값으로 설정하거나 세션 타임아웃 시간을 늘리면 된다.
+    4. **session.timeout.ms**
+        - **컨슈머가 브로커와 연결이 끊기는 시간**, 기본 10초
+        - 만일 컨슈머가 그룹조정자에게 하트비트를 전송하지 않으면서 이 값으로 설정한 시간이 경과되면 이 컨슈머는 실행종료된것으로 간주되고 그룹조정자는 그 컨슈머의 파티션들을 해당 그룹의 다른 컨슈머에게 할당하기 위해 해당 컨슈머 그룹의 리밸런싱을 시작한다.
+        - 이 매개변수는 **heartbeat.interval.ms와 밀접한 관계**가 있다. 컨슈머의 poll()메서드에서 그룹조정자에게 하트비트를 전송하는 시간 간격을 제어하는 것이 heartbeat.interval.ms다. 이와는 달리 session.timeout.ms는 컨슈머가 하트비트를 전송하지 않고 살아있을 수 있는 시간이다. 그러므로 두 매개변수의 값은 같이 고려하여 설정해야 한다. (대개 session.timeout.ms 값의 1/3으로 설정)
+    5. **auto.offset.reset**
+        - **커밋된 오프셋이 없는 파티션을 컨슈머가 읽기 시작할 때 또는 커밋된 오프셋이 있지만 유효하지 않을 때** 컨슈머가 어떤 레코드를 읽게 할 것인지 제어하는 매개변수
+        - 기본값은 유효한 오프셋이 없음을 의미하는 **latest**이며 이 경우 컨슈머는 가장 최근의 레코드들을 읽기 시작한다. (실행 후 새로 추가되는 레코드들)
+        - 다른 값으로는 **earliest**가 있으며 이 경우 컨슈머는 해당 파티션의 맨 앞부터 모든 데이터를 읽게 된다. (중복가능, 누락 최소화)
+    6. **enable.auto.commit**
+        - **컨슈머의 오프셋 커밋을 자동으로 할 것인지 제어** 기본 true
+        - 오프셋의 커밋을 컨슈머가 제어하고 싶다면 false로 설정
+        - **true 일때는 auto.commit.interval.ms를 설정하여 자동으로 오프셋을 커밋하는 시간 간격을 제어**할 수 있다.
+    7. **partition.assignment.strategy**
+        - 컨슈머 그룹의 **각 컨슈머에게 토픽의 각 파티션을 어떻게 할당할 지** 결정하는 매개변수 (원하는 클래스 이름을 지정해준다.)
+        - 카프카에서는 이런 클래스가 두개 있으며 두가지 전략을 구현한다. (커스텀 클래스를 사용할 수도 있다.)
+            1. **범위**
+                - 컨슈머들이 구독하는 모든 토픽의 파티션들을 각 컨슈머마다 연속적으로 할당한다.
+            2. **라운드 로빈**
+                - 구독하는 모든 토픽의 모든 파티션들을 컨슈머들에게 하나씩 번갈아 차례대로 할당한다.
+                - 이 전략을 사용하면 모든 컨슈머가 같은 수 또는 최대 1개 차이나는 파티션을 갖게 된다.
+        - 기본 값은 범위 : org.apache.kafka.clients.consumer.RangeAssignor (라운드 로빈 : org.apache.kafka.clients.consumer.RoundRobinAssignor)
+    8. **client.id**
+        - 클라이언트로부터 전송된 **메시지를 식별하기 위해 브로커가 사용**
+    9. **max.poll.records**
+        - **한번의 poll() 메소드 호출에서 반환되는 레코드의 최대 개수**를 제어
+    10. **receive.buffer.bytes, send.buffer.bytes**
+        - 데이터를 읽거나 쓸 때 소켓이 사용하는 TCP 송수신 버퍼의 크기를 제어한다.
+7. **커밋과 오프셋**
+    1. **poll**() 메서드는 호출될 때마다 그룹의 컨수머들이 **아직 읽지 않은 레코드들을 반환**한다. 카프카는 다른 많은 JMS(Java Message Service) 시스템이 하는 것과 다른 방법으로 컨슈머가 읽는 레코드를 추적 관리한다. 카프카의 **각 컨슈머는 파티션별로** 자신이 읽는 **레코드의 현재 위치**(오프셋)을 **추적 관리**할 수 있다.
+    2. **파티션 내부의 현재 위치를 변경하는 것을 커밋**(commit)이라고 한다.
+    3. **컨슈머가 오프셋을 커밋하면 카프카는 내부적으로 __consumer__offsets라는 이름의 특별한 토픽에 메시지를 쓴다. 이 토픽은 모든 컨슈머의 오프셋을 갖는다.** 그리고 컨슈머 그룹의 모든 컨슈머들이 정상적으로 실행중일때는 오프셋을 커밋해도 아무런 영향을 주지 않는다. 그러나 만일 기존 컨슈머가 비정상적으로 종료되거나, 새로운 컨슈머가 컨슈머 그룹에 추가 된다면 오프셋 커밋은 리밸런싱을 유발한다. 그리고 리밸런싱이 끝나면 각 컨슈머는 종전과 다른 파티션들을 할당받게 될 수 있다. 따라서 어느 위치부터 메시지를 읽어야 할지 알기 위해 컨슈머는 각 파티션의 마지막 커밋된 오프셋을 알아낸후 거기서부터 계속 읽어야 한다.
+    4. **카프카 컨슈머 API에서 오프셋을 커밋하는 방법**
+        1. **자동 커밋**
+            - KafkaConsumer 객체가 자동으로 오프셋을 커밋
+            - **enable.auto.commit = true로 설정**
+            - poll() 메서드에서 **받은 오프셋 중 가장 큰 것을 한번씩 커밋**
+            - **auto.commit.interval.ms로 커밋 간격 설정**
+            - **오프셋 자동 커밋을 자주 하도록 시간을 설정하면 레코드의 중복을 줄일 수 있으나 완전히 없애는 것은 불가능하다.**
+        2. **현재의 오프셋 커밋** (동기)
+            - **enable.auto.commit = false로 설정**
+            - 애플리케이션에서 요구할 때만 오프셋이 커밋
+            - 가장 간단하면서 신뢰도가 높은 **commitSync**() : poll() 메소드에서 반환된 마지막 오프셋을 커밋한다. 그리고 **오프셋이 성공적으로 커밋되면 실행이 끝나지만, 만일 어떤 이유로 커밋에 실패하면 예외를 발생시킨다.**
+            - commitSync()는 poll()에서 반환된 가장 최근의 오프셋을 커밋한다는 것에 유의. 따라서 **반환된 모든 레코드의 처리가 다 된 후에** commitSync()를 호출해야 한다.
+            ```java
+            while(true){
+                ConsumerRecords<String, String> records = consumer.poll(100);
+                
+                for(ConsumerRecord<String, String> record : records){
+                    // 데이터 처리
+                }
+                
+                try{
+                    consumer.commitSync();
+                } catch (CommitFailedException e){
+                    log.error("commit failed", e);
+                }
+            }
+            ```
+        3. **비동기 커밋**
+            - **브로커가 커밋 요청에 응답할 때까지 애플리케이션이 일시 중지된다는 것이 수동 커밋의 한가지 단점**이다. (동기)
+            - 이로 인해 애플리케이션의 처리량을 제한하게 된다. 물론 커밋을 자주하지 않으면 처리량이 증가될 수 있다. 그러나 리밸런싱으로 인해 생기는 중복 처리 레코드의 수가 증가한다.
+            - **비동기 커밋 : 브로커의 커밋 응답을 기다리는 대신, 커밋 요청을 전송하고 처리를 계속할 수 있다.**
+                ```java
+                while(true){
+                    ConsumerRecords<String, String> records = consumer.poll(100);
+                
+                    for(ConsumerRecord<String, String> record : records){
+                        // 데이터 처리
+                    }
+                    
+                    consumer.commitAsync();
+                }
+                ```
+            - 커밋이 성공하거나 재시도 불가능한 에러가 생길 때까지 commitSync()는 커밋을 재시도하지만, commitAsync()는 **재시도하지 않는다는 것이 단점**이다. 왜냐하면 서버의 응답을 받는 사이에 이후의 다른 커밋이 먼저 성공할 수 있기 떄문이다.
+            - 오프셋 커밋의 순서를 지키지 않을 때의 문제점과 중요성을 얘기한 이유는 브로커가 응답할 때 실행되는 **콜백**(callback)을 commitAsync()에도 전달할 수 있기 때문이다. 콜백은 커밋 에러를 로깅하거나 메트릭에서 집계하기 위해 주로 사용한다. **그러나 오프셋 커밋을 재시도하기 위해 콜백을 사용하고자 한다면 커밋 순서와 관련된 문제점을 알고 있어야 한다.**
+                ```java
+                while(true){
+                    ConsumerRecords<String, String> records = consumer.poll(100);
+                
+                    for(ConsumerRecord<String, String> record : records){
+                        // 데이터 처리
+                    }
+                    
+                    consumer.commitAsync(new OffsetCommitCallback(){
+                        public void onComplete(Map<TopicParition, OffsetAndMetadata> offsets, Exception e){
+                            if(e != null)
+                                log.error("Commit failed for offsets {}", offsets, e);
+                        }
+                    });
+                }
+                ```
+            - 커밋에 실패하면 콜백 메서드인 onComplete가 자동 호출되어 에러 메시지와 해당 오프셋을 로깅한다.
+            - **비동기 커밋을 재시도하기**
+                - **순차적으로 증가하는 일련번호를 사용**하면 비동기 커밋을 재시도할 때 커밋 순서를 지킬 수 있다. 즉, **커밋을 할때마다 인스턴스 변수의 일련번호를 증가시키고 그것을 commitAsync 콜백에 추가로 전달**한다. 그리고 재시도 커밋을 전송할 준비가 되면 콜백이 갖고 있던 커밋 일련번호가 인스턴스 변수의 것과 같은지 확인한다. 만일 같다면 더 새로운 커밋이 없었으므로 재시도를 해도 안전하다. 그러나 인스턴스 변수의 일련번호가 더 크다면 재시도하지 말아야 한다. 더 새로운 커밋이 이미 전송된 것이기 때문이다.
+        4. **동기와 비동기 커밋을 같이 사용하기**
+            - 재시도 없이 오프셋 커밋이 실패해도 큰 문제가 되지 않는다. 그것이 일시적이라면 그 다음의 커밋에서 성공할 것이기 때문이다. 그러나 **폴링 루프의 실행이 끝나고 컨슈머를 닫기 전 또는 리밸런싱이 시작되기 전의 마지막 커밋이라면 성공 여부를 추가로 확인해야 한다.**
+            - 이 경우 commitSync()와 commitAsync()를 같이 사용한다
+            ```java
+            try{
+                while(true){
+                    ConsumerRecords<String, String> records = consumer.poll(100);
+                
+                    for(ConsumerRecord<String, String> record : records){
+                        // 데이터 처리
+                    }
+                    
+                    // 정상적일 때에는 commitAsyc() 사용
+                    // 처리 속도가 빠르고 하나의 커밋이 실패해도 그 다음 커밋이 재시도의 기능을 해주기 때문
+                    consumer.commitAsync();
+                }
+            } catch (Exception e){
+                log.error("Unexpected error", e);
+            } finally{
+                try{
+                    // 컨슈머를 닫을 때는 그 다음에 수행되는 커밋이 없기 때문에 commitSync()를 호출한다.
+                    // 커밋이 성공하거나 복구 불가능 에러가 될 때까지 커밋을 재시도하기 떄문
+                    consumer.commitSync();
+                } finally{
+                    consumer.close();
+                }
+            }
+            ```
+        5. **특정 오프셋을 커밋하기**
+            - 가장 최근 오프셋 커밋은 메시지 배치의 처리가 끝날 때만 수행된다. 그러나 그보다 더 자주 커밋을 하고 싶다면 또는 poll() 메서드에서 **용량이 큰 배치를 반환할 때 그 배치 중간의 오프셋을 커밋**하여 리밸런싱으로 인한 많은 메시지의 중복처리를 막고자 한다면 commitSync()나 commitAsync()의 단순한 호출로는 해결하기 어렵다. 이 메소드들은 항상 마지막으로 반환된 오프셋을 커밋하기 떄문이다.
+            - 컨슈머 API에서는 우리가 커밋을 원하는 파티션과 오프셋을 저장한 Map을 인자로 전달할 수 있다.
+            ```java
+            // 직접 오프셋을 추적 관리하기 위한 Map
+            private Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
+            int count = 0;
+            
+            while(true){
+                ConsumerRecords<String, String> records = consumer.poll(100);
+                for(ConsumerRecord<String, String> record : records){
+                    // 데이터 처리
+                    
+                    // 현재의 오프셋을 map에 추가
+                    // ((topic, partition), (offset))
+                    currentOffsets.put(new TopicPartition(record.topic(), record.partition()), new OffsetAndMetadata(record.offset() +1, "no metadata"));
+                    
+                    // 1000개의 레코드마다 한번 씩 커밋
+                    if(count%1000 == 0)
+                        consumer.commitAsync(currentOffsets, null);
+                    count++;
+                }
+            }
+            ```
+8. **리밸런싱 리스너**
+    1. **컨슈머는 종료되기 전이나 파티션 리밸런싱이 시작되기 전에 클린업하는 처리를 해야 한다.**
+    2. 예를 들어, 컨슈머가 파티션의 소유권을 읽게 되는 것을 알게 된다면 처리했던 마지막 메시지의 오프셋을 커밋해야 하며, 사용하던 파일 핸들, 데이터베이스 연결 등도 닫아야 한다.
+    3. **카프카 컨슈머 API에서는 컨슈머의 파티션이 추가나 제거될 때 코드가 실행될 수 있게 해준다.**
+    4. subscribe() 메서드를 호출할 때 **ConsumerRebalanceListener 인터페이스를 구현하는 객체를 인자로 전달**하면 된다.
+    5. ConsumerRebalanceListener 인터페이스는 두개의 메서드를 정의하고 있다.
+        1. public void **onPartitionsRevoked** (Collection\<TopicPartition\> partitions)
+            - 이 메서드는 **리밸런싱이 시작되기 전**에, 그리고 컨슈머가 메시지 소비를 중단한 후 호출된다.
+            - **오프셋을 커밋해야하는 곳이 바로 이 메서드**다.
+            - 그래야만 현재의 파티션을 이어서 소비할 다른 컨슈머가 해당 파티션의 어디서부터 메시지 소비를 시작할지 알 수 있기 때문이다.
+        2. public void **onPartitionsAssigned** (Collection\<TopicPartition\> partitions)
+            - 이 메서드는 **파티션이 브로커에게 재할당된 후**에, 그리고 컨슈머가 파티션을 새로 할당받아 메시지 소비를 시작하기 전에 호출된다.
+        3. 리밸런싱이 시작되기 전에 커밋하기
+            ```java
+            private Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
+            
+            private class HandleRebalance implements ConsumerRebalanceListener {
+                public void onPartitionsAssigned(Collection<TopicPartition> partitions){}
+                
+                public void onPartitionsRevoked(Collection<TopicPartition> partitions){
+                    System.out.println("Lost partitions in rebalance. Committing current offsets : "+currentOffsets);
+                    
+                    // 이 컨슈머가 소비하던 모든 파티션의 오프셋을 커밋
+                    consumer.commitSync(currentOffsets);
+                }
+            }
+            
+            try{
+                // subscribe 인자로 전달
+                consumer.subscribe(topics, new HandleRebalance());
+                
+                while(true){
+                    ConsumerRecords<String, String> records = consumer.poll(100);
+                    for(ConsumerRecord<String, String> record : records){
+                        // 데이터 처리
 
+                        currentOffsets.put(new TopicPartition(record.topic(), record.partition()), new OffsetAndMetadata(record.offset() +1, "no metadata"));
+
+                        consumer.commitAsync(currentOffsets, null);
+                    }
+                }
+            } catch(WakeupException e){
+                // 컨슈머를 닫을 것이므로 이 예외는 무시
+            } catch(Exception e){
+                log.error("Unexpected error", e);
+            } finally{
+                try{
+                    consumer.commitSync(currentOffsets);
+                } finally{
+                    consumer.close();
+                }
+            }
+            ```
+9. **역직렬처리기** (deserializer) (**Detailed** : can be found in each directory.)
+    - 카프카 프로듀서는 카프카로 전송될 메시지 객체를 바이트 배열로 변환하는 직렬처리기가 필요하다.
+    - 이와는 반대로 **카프카 컨슈머는 카프카로부터 받은 바이트 배열을 자바 객체로 변환하는 역직렬처리기가 필요**하다.
+    - 카프카에 쓰는 메시지를 생성하기 위해 사용되는 **직렬처리기**는 메시지를 읽을 때 사용되는 **역직렬처리기와 호환되는 것이어야 한다.**
+    - 직렬화와 역직렬화를 위해 Avro와 스키마 레지스트리를 사용하면 좋은 이유가 바로 그 때문이다.
+    - **Avro 직렬처리기를 사용하면 특정 토픽에 쓰는 모든 데이터가 해당 토픽의 스키마와 호환될 수 있으므로 직렬화를 어떻게 했는지 신경 쓰지 않고, Avro 역직렬처리기와 스키마로 역직렬화할 수 있다.**
+    - 커스텀 직렬처리기와 역직렬처리기를 직접 구현하는 것은 바람직하지 않다.
+10. **독자 실행 컨슈머** (Independent Consumer) (**Detailed** : can be found in each directory.)
+    - 그룹 없이 하나의 컨슈머만 사용
+    - 한 토픽의 모든 파티션이나 하나의 특정 파티션 데이터를 항상 하나의 컨슈머가 읽는다.
+    - **컨슈머 그룹이나 리밸런싱이 필요 없으므로, 해당 컨슈머 전용의 토픽과 파티션을 할당한 후 메시지를 읽고 오프셋을 커밋하면 된다.**
+    - 컨슈머가 어떤 파티션을 읽어야 하는지 정확하게 알고 있을 때는, **토픽을 구독하지 않는 대신 스스로 파티션을 할당**할 수 있다. **그러나 두 가지를 같이 할 수는 없다.**
+    - 이 경우 **리밸런싱이 자동으로 되지 않고 직접 파티션을 찾아야 하지만 이외에는 여느 때와 다르지 않다.**
+    - 단, **토픽에 새로운 파티션이 추가되어도 해당 토픽의 모든 파티션을 사용하는 컨슈머에게 알려주지 않는다**는 것에 유의해야 한다.
+    - 따라서 이때는 **consumer.partitionsFor**() 메서드를 **정기적으로 호출**하여 파티션 정보를 확인한 후 처리해야 한다. 또는 파티션이 추가될 때마다 간단히 애플리케이션을 수정해서 처리해도 된다.
+    
 ----------------------------------------------------
-
 
 ## Kafka internal mechanism
 
 
 ----------------------------------------------------
 
-
 ## Reliable data delivery
 
 
 ----------------------------------------------------
-
 
 ## Build the data pipeline
 
 
 ----------------------------------------------------
 
-
 ## Cross-cluster data mirroring
 
 
 ----------------------------------------------------
-
 
 ## Kafka management
 
 
 ----------------------------------------------------
 
-
 ## Kafka monitoring
 
 
 ----------------------------------------------------
-
 
 ## Stream processing
 
@@ -503,21 +791,21 @@
 8. **Kafka-consumer-save-metric** : telegraf를 통해 데이터를 수집하고 카프카 적재 후 읽어와서 .csv 형식으로 저장
     1. **Homebrew** [설치](https://www.whatwant.com/entry/LinuxBrew-install-Ubuntu-1804)
     2. **Telegraf** 설치
-        ```{.bash}
+        ```bash
         brew install telegraf
         ```
     3. **Telegraf 설정 파일 생성 및 설정**
         1. telegraf 설치 경로 확인
-        ```{.bash}
+        ```bash
         brew info telegraf
         ```
         2. **telegraf.conf 파일 생성**
-        ```{.bash}
+        ```bash
         cd {telegraf 설치경로}/bin
         vi telegraf.conf
         ```
         3. **telegraf.conf 파일 설정**
-        ```{.html}
+        ```html
         [agent]
           interval = "10s"
         [[outputs.kafka]]
@@ -531,19 +819,19 @@
         [[inputs.mem]]
         ```
     4. **카프카 토픽 생성**
-        ```{.bash}
+        ```bash
         (KAFKA_HOME)/bin/kafka-topics.sh --create --bootstrap-server {AWS EC2 Public IP}:9092 --replication-factor 1 --partitions 5 --topic my-computer-metric
         ```
     5. **Telegraf 실행** (telegraf 설치경로/bin)
-        ```{.bash}
+        ```bash
         ./telegraf --config telegraf.conf
         ```
     5. 데이터 확인
-        ```{.bash}
+        ```bash
         (KAFKA_HOME)/bin/kafka-console-consumer.sh --bootstrap-server {AWS EC2 Public IP}:9092 --topic my-computer-metric --from-beginning
         ```
     6. **자바 프로젝트 실행(Kafka-consumer-save-metric)** 후 파일 확인
-        ```{.bash}
+        ```bash
         (자바 프로젝트 위치) tail -f *.csv
         ```
     7. 화면 캡쳐
