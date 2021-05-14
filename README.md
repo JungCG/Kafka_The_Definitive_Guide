@@ -16,6 +16,7 @@
 11. [Kafka monitoring](#kafka-monitoring)
 12. [Stream processing](#stream-processing)
 13. [Simple Projects](#simple-projects)
+14. [Kafka Manager](#kafka-manager)
 
 ---------------------------------------------------
 
@@ -24,7 +25,7 @@
 2. OS - Ubuntu 20.04.1 LTS (VMware), Amazon Linux 2(AWS EC2)
 3. IDE - IntelliJ(Community / 11.0.9.1 / 2020.3.2)
 4. Server - **AWS(EC2, Route 53)**
-5. etc - Homebrew, **telegraf(v1.17.2)**, **Elasticsearch**(v7.12.1)
+5. etc - Homebrew, **telegraf(v1.17.2)**, **Elasticsearch**(v7.12.1), **Kafka Manager**(v1.3.3.23)
 
 ----------------------------------------------------
 
@@ -2301,7 +2302,6 @@
         2. 카프카 클러스터로부터 메시지를 읽을 수 있는가
     - 이상적으로는 모든 토픽에 대해 개별적으로 이것을 모니터링할 수 있을 것이다. 그러나 그렇게 하기 위해 모든 토픽에 트래픽을 발생시킨다는 것은 모든 경우에서 불합리하다.
     - 이때 **카프카 모니터**(**Kafka Monitor**)를 사용하면 유용하다. 링크드인의 카프카 팀에서 오픈 소스로 공개한 이 도구는 클러스터의 모든 브로커에 분산된 토픽의 데이터를 계속해서 쓰고 읽는다. 그리고 각 브로커에 대해 쓰기와 읽기 요청의 가용성과 지연을 측정한다. 이런 타입의 모니터링은 카프카 클러스터가 의도한 대로 작동하고 있는지 외부적으로 확인할 수 있어서 매우 유용하다. 컨슈머 지연 모니터링 처럼, 클라이언트가 클러스터를 제대로 사용할 수 있는지는 카프카 브로커가 알려줄 수 없기 때문이다.
-10. Kafka Manager 설치 및 연동
 
 ----------------------------------------------------
 
@@ -2373,3 +2373,103 @@
         <p align="center">
             <img src="Images/brew2.png",width="100%">
         </p>
+        
+----------------------------------------------------
+
+## Kafka Manager
+1. **Kafka Manager 설치 및 연동**
+    1. **Kafka Manager**
+        - **Yahoo에서 제작한 GUI 기반 카프카 관리 도구**
+    2. **설치** [링크](https://github.com/yahoo/CMAK/releases)
+        - **버전 3.X 이상부터는 JAVA 11 이상 필요**
+        - **여기서는 JAVA 8에 맞게 1.3.3.23 버전 사용**
+        ```bash
+        $ wget https://github.com/yahoo/CMAK/archive/refs/tags/1.3.3.23.tar.gz
+        $ tar -zxvf 1.3.3.23.tar.gz
+        ```
+    3. **sbt 를 이용해서 빌드**
+        - **sbt** (**Simple Build Tool**) : **스칼라로 작성된 빌드 도구**
+        ```bash
+        $ cd CMAK-1.3.3.18
+        $ ./sbt clean dist
+        ```
+        <p align="center">
+            <img src="Images/km1.png",width="100%">
+        </p>
+    4. **빌드가 완료되면 zip 형식의 output 파일이 생성된다.** 적당한 위치에 압축을 푼다.
+        - **output 파일 위치는 빌드 마지막 로그 확인**
+        ```bash
+        CMAK-1.3.3.23/target/universal$ cp kafka-manager-1.3.3.23.zip ~/kmanager
+        kmanager$ unzip kafka-manager-1.3.3.23.zip
+        kmanager$ ln -s kafka-manager-1.3.3.23/ kafka-manager
+        ```
+    5. **conf/application.conf** 파일 설정
+        - **kafka-manager.zkhosts 세팅**
+        ```bash
+        kafka-manager/conf$ vi application.conf
+        
+        kafka-manager.zkhosts="{AWS IP}:2181"
+        ```
+    6. (카프카 브로커를 실행하는 서버에서) **JMX_PORT** 설정
+        ```bash
+        (KAFKA_HOME)/bin# vi kafka-server-start.sh
+        
+        // JMX_PORT 추가
+        export JMX_PORT=9999
+        ```
+        <p align="center">
+            <img src="Images/km2.png",width="100%">
+        </p>
+    7. **kafka-manager 실행**
+        - zookeeper와 kafka는 이미 실행 중이라고 가정
+        ```bash
+        kafka-manager/bin$ ./kafka-manager
+        ```
+    8. **카프카 매니저 페이지 접속** (localhost:9000, 기본 포트 9000)
+        <p align="center">
+            <img src="Images/km3.png",width="100%">
+        </p>
+    9. **Kafka 연동**
+        1. **Cluster 생성**
+            - **Cluster Name, Cluster Zookeeper Hosts, Kafka Version 작성**
+            - Enable JMX Polling, Poll consumer information, Display Broker and Topic Size 체크
+        2. 확인
+        <p align="center">
+            <img src="Images/km4.png",width="100%">
+        </p>
+        <p align="center">
+            <img src="Images/km55.png",width="100%">
+        </p>
+        <p align="center">
+            <img src="Images/km6.png",width="100%">
+        </p>
+2. **Kafka Manager 설치 및 연동 시 발생하는 에러**
+    1. **빌드 실패 1** (**sbt-launcher Download failed**)
+        - sbt-launch.jar 다운로드 실패 (repo 위치 문제)
+            <p align="center">
+                <img src="Images/kmerror1.png",width="100%">
+            </p>
+        - **해결 방법** : 로그에 나온 To 위치에 **직접 sbt-launch.jar** [다운로드](http://dl.bintray.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.9/)
+        ```bash
+        .sbt/launchers/0.13.9$ wget http://dl.bintray.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.9/sbt-launch.jar
+        ```
+    2. **빌드 실패 2** (**Connection refused**)
+        - ./sbt clean dist 명령어 실행 시 Server access Error: Connection refused 발생
+        - **해결 방법** : **resolver 추가** 후 다시 실행
+            ```bash
+            CMAK-1.3.3.23/project# vi plugins.sbt
+            
+            // The Typesafe repository
+            resolvers += "Typesafe repository" at "https://repo.typesafe.com/typesafe/releases/"
+            resolvers += "Maven Central Server" at "https://repo1.maven.org/maven2"
+            resolvers += "Typesafe Server" at "https://repo.typesafe.com/typesafe/releases"
+            ```
+    3. **브로커 메트릭 모니터링 실패**
+        - 메시지 : ERROR k.m.a.c.BrokerViewCacheActor - Failed to get broker metrics (생략)...
+        - **해결 방법** : (카프카 서버에서) **bin/kafka-run-class.sh 설정** 추가
+        ```bash
+        bin$ vi kafka-run-class.sh
+        
+        // KAFKA_JMX_OPTS에 -Djava.rmi.server.hostname={AWS IP} 추가
+        KAFKA_JMX_OPTS="-Djava.rmi.server.hostname={AWS IP} (생략)"
+        ```
